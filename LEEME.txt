@@ -1,0 +1,136 @@
+MINICRAFT 3D — Shooter de zombis para navegador
+================================================
+
+CÓMO JUGAR
+----------
+1) Abre "index.html" con doble clic en Chrome, Edge o Firefox.
+   (Si tu navegador bloquea el ratón desde el archivo local, usa el
+   servidor incluido: abre una consola en esta carpeta y ejecuta
+   "node server.js", luego entra en http://localhost:8123)
+
+2) Pulsa JUGAR. El ratón queda capturado.
+3) Sobrevive a las oleadas de zombis y suma bajas.
+4) Pulsa Esc para pausar. Si te matan, pulsa REAPARECER.
+
+CONTROLES
+---------
+  W A S D ......... Moverse
+  Espacio ......... Saltar
+  Shift ........... Correr
+  Ratón ........... Mirar
+  Clic izquierdo .. Disparar / atacar con el cuchillo / lanzar granada
+  Clic derecho .... Apuntar con la mira (sólo armas de fuego)
+  1 ............... Ametralladora
+  2 ............... Pistola
+  3 ............... Cuchillo
+  4 ............... Granada
+  I ............... Inventario (pausa la partida mientras está abierto)
+  Rueda ........... Cambiar de arma
+  R ............... Recargar (se recarga sola al vaciar el cargador)
+  Esc ............. Pausa / liberar el ratón
+
+ARSENAL
+-------
+  1. Ametralladora .. 30 balas, automática y rápida. 18 al cuerpo,
+                      55 a la cabeza. Recarga 2,1 s.
+  2. Pistola ........ 12 balas, precisa y potente. 25 al cuerpo,
+                      60 a la cabeza. Recarga 1,15 s.
+  3. Cuchillo ....... Sin munición, cuerpo a cuerpo. 50 al cuerpo (mata
+                      de un tajo), 100 a la cabeza. Alcanza a 3,6 bloques
+                      y tiene ayuda de puntería.
+  4. Granada ........ Empiezas con 2 y ganas 2 más al superar cada oleada
+                      (máximo 9). Se lanza con física, rebota y explota a
+                      la 1,05 s en un radio de 5 bloques con daño por
+                      distancia; las paredes frenan la explosión. Tras
+                      lanzarla vuelve sola al arma anterior. Sin granadas
+                      no se puede equipar (la ranura se apaga).
+  Cambiar de arma cancela la recarga en curso.
+
+INVENTARIO (I)
+--------------
+  Pulsa I en partida para ver tu equipo: las 4 armas con su munición
+  (o granadas restantes), la vida, la oleada, las bajas, el récord y el
+  tiempo de oleada. Mientras está abierto la partida se pausa; puedes
+  equipar otra arma con 1-4 y volver al juego con I o Esc.
+
+CARACTERÍSTICAS
+---------------
+- El MISMO mundo de bloques de siempre: colinas, montañas, playas,
+  bosques, nieve y nubes. La generación no se ha tocado.
+- Semilla FIJA: el mapa es idéntico en cada partida (antes era aleatorio).
+  Puedes probar otra semilla con ?seed=NUMERO al final de la URL.
+- Antorchas repartidas por todo el mapa (unas cada 9 bloques, siempre en
+  el mismo sitio para cada semilla): iluminan el suelo a su alrededor y
+  permiten ver de noche. Su resplandor es más intenso cuando oscurece.
+- Ciclo de día y noche ligado a las oleadas: la partida empieza de noche
+  cerrada (oleada 1), el cielo va clareando con el amanecer durante las
+  oleadas 2 y 3 y llega a pleno día en la oleada 4-5. Cambian de forma
+  continua el cielo, la niebla, las nubes, las estrellas y la luz, y las
+  antorchas pierden protagonismo al amanecer.
+- Tres armas con modelo propio en primera persona (ametralladora con
+  culata y cargador, pistola y cuchillo con hoja), con mano, manga,
+  retroceso, fogonazo, trazadora y animación de corte.
+- Granada con modelo propio: cuerpo verde, tapón y palanca. Su explosión
+  ilumina la zona, levanta polvo y sacude la cámara.
+- Zombis estilo Minecraft (cabeza con cara, camiseta y brazos al frente)
+  que aparecen alrededor, te persiguen, saltan obstáculos y atacan.
+- Cada golpe de zombi quita UN CORAZÓN COMPLETO (10 de vida).
+- Hordas masivas: hasta 32 zombis a la vez, llegan en parejas y cada vez
+  más rápido. La oleada se mantiene mientras aguantes.
+- Contador de oleada de 3:00 arriba en el centro (con barra de tiempo).
+  Al completarla: +2 corazones, munición recargada, +2 granadas y empieza
+  la siguiente oleada, que sigue subiendo de dificultad.
+- La partida tiene 5 oleadas: al llegar a la OLEADA 5 termina con la
+  pantalla "HAS SOBREVIVIDO" y tus bajas.
+- Inventario con I: equipo, munición, granadas, vida, oleada, bajas,
+  récord y tiempo, con la partida en pausa mientras está abierto.
+- Vida de 100 con corazones, cargador por arma con auto-recarga, viñeta
+  roja al recibir daño, marca de impacto (hitmarker), cabeza = daño
+  letal y contador de bajas con récord guardado en el navegador.
+- Chunks cargados dinámicamente según te mueves.
+- Texturas pixel-art generadas por código (sin imágenes externas).
+- Iluminación ambiental por vértice (smooth lighting) en el terreno y
+  luces nuevas sólo para el arma y los zombis.
+- Física: gravedad, salto, colisiones, paso automático de escalones y
+  salto de obstáculos de los zombis.
+- Sonidos sintetizados con WebAudio: ametralladora, pistola, cuchillo,
+  impacto, recarga, cambio de arma, lanzamiento y explosión de granada,
+  gruñidos y muerte.
+
+ESTRUCTURA
+----------
+  index.html     Juego completo (HTML + CSS + JS)
+  three.min.js   Three.js r128 (render 3D)
+  server.js      Servidor estático opcional en Node.js (puerto 8123)
+  captura.png    Captura del juego
+
+NOTAS TÉCNICAS
+--------------
+- Un chunk = 16x16x48 bloques; sólo se generan las caras visibles y se
+  agrupan en una sola geometría por chunk (pocas llamadas de dibujo).
+- El mundo se genera por ruido de valor (fbm) y es determinista para cada
+  semilla. La semilla por defecto es 20261028 (fija) y se puede cambiar
+  con ?seed=NUMERO.
+- Los disparos usan un raycast DDA contra los vóxeles del mundo y una
+  prueba rayo-AABB contra cada zombi; las paredes bloquean los tiros.
+  El cuchillo usa el mismo rayo, pero limitado a 3,6 bloques y con un
+  pequeño cono de ayuda para que los golpes cerca no fallen.
+- La granada es un proyectil con gravedad que rebota en los bloques
+  (comprobación de esfera contra vóxeles) y explota con la mecha. El daño
+  va de 210 en el centro a ~24 en el borde y se corta si hay una pared
+  entre la explosión y el zombi.
+- Las antorchas se dibujan con InstancedMesh (4 llamadas de dibujo en
+  total): palo, punta, resplandor cruzado y charco de luz en el suelo.
+  Sólo se recalculan al cambiar de celda de 9 bloques o al reaparecer.
+- El terreno es un material básico con la luz horneada en los vértices;
+  el día/noche lo tiñe multiplicando su color, y el cielo/niebla/nubes
+  interpolan entre claves de color. Las antorchas añaden dos luces
+  puntuales que saltan a las más cercanas para iluminar zombis y arma.
+- Los zombis comparten geometrías; cada uno tiene sus propios materiales
+  (para el destello rojo al recibir daño) y se liberan al morir. La cara
+  es un plano aparte para ahorrar llamadas de dibujo en las hordas.
+- Los cambios de bloques no se guardan; el mundo es procedural.
+- Récord de bajas en localStorage ("mc_best_zombies").
+- Para depurar desde la consola del navegador: window.__MC
+  (player, game, ammo, zombies, WEAPONS, selectWeapon(), fire(),
+  throwGrenade(), explodeGrenade(), finishWave(), win(), respawn()...).
