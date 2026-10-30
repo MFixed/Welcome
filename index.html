@@ -111,7 +111,27 @@
     letter-spacing: .18em; opacity: .75;
   }
 
-  /* Selector de armas (1 2 3) */
+  /* Barra de vida del Boss (Titán) */
+  #bossBarWrap {
+    position: absolute; top: 76px; left: 50%; transform: translateX(-50%);
+    width: 280px; text-align: center; color: #ff4444;
+    text-shadow: 0 2px 4px rgba(0,0,0,.9); display: none; z-index: 10;
+  }
+  #bossBarWrap.show { display: block; }
+  #bossLabel {
+    font-size: 10px; letter-spacing: .25em; font-weight: bold; margin-bottom: 2px;
+  }
+  #bossBar {
+    width: 100%; height: 7px; background: rgba(0,0,0,.65);
+    border: 1px solid rgba(255,68,68,.6); border-radius: 4px; overflow: hidden;
+    box-shadow: 0 2px 6px rgba(0,0,0,.8);
+  }
+  #bossFill {
+    width: 100%; height: 100%; background: linear-gradient(90deg, #ff2222, #ff8800);
+    transition: width .1s linear;
+  }
+
+  /* Selector de armas (1-5) */
   #weapons {
     position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%);
     display: flex; gap: 6px;
@@ -257,12 +277,42 @@
     border: 1px solid rgba(255,255,255,.18); border-bottom-width: 2px;
     border-radius: 4px;
   }
-  .hint { margin: 24px 0 0; font-size: 11px; opacity: .45; letter-spacing: .04em; }
+  /* Consola estilo CS */
+  #consolePanel {
+    position: fixed; top: 0; left: 0; right: 0; height: 260px;
+    background: rgba(12, 16, 22, 0.92); border-bottom: 2px solid rgba(255, 215, 94, 0.5);
+    display: flex; flex-direction: column; padding: 12px 16px; z-index: 100;
+    font-family: inherit; color: #d0e2ff; pointer-events: auto;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.8);
+    transition: transform .2s ease;
+  }
+  #consolePanel.hidden { transform: translateY(-100%); pointer-events: none; }
+  #consoleLog {
+    flex: 1; overflow-y: auto; font-size: 13px; line-height: 1.4;
+    white-space: pre-wrap; word-break: break-all; margin-bottom: 8px;
+    padding-right: 4px; color: #a9c6e8;
+  }
+  #consoleLog .c-msg { color: #8ecbf7; }
+  #consoleLog .c-cmd { color: #ffd75e; }
+  #consoleLog .c-err { color: #ff6b5e; }
+  #consoleInputWrap { display: flex; align-items: center; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; padding: 4px 8px; }
+  #consolePrompt { color: #ffd75e; font-weight: bold; margin-right: 6px; font-size: 14px; }
+  #consoleInput {
+    flex: 1; background: transparent; border: none; outline: none;
+    color: #fff; font-family: inherit; font-size: 14px;
+  }
 </style>
 </head>
 <body>
 
 <div id="hud">
+  <div id="consolePanel" class="hidden">
+    <div id="consoleLog">MiniCraft 3D Console. Escribe /help para ver los comandos disponibles.</div>
+    <div id="consoleInputWrap">
+      <span id="consolePrompt">]</span>
+      <input id="consoleInput" type="text" autocomplete="off" spellcheck="false" />
+    </div>
+  </div>
   <div id="stats">Generando mundo…</div>
   <div id="waveWrap">
     <div id="waveLabel">OLEADA 1</div>
@@ -270,6 +320,10 @@
     <div id="waveBar"><div id="waveFill"></div></div>
   </div>
   <div id="waveMsg"></div>
+  <div id="bossBarWrap">
+    <div id="bossLabel">TITÁN COLOSAL</div>
+    <div id="bossBar"><div id="bossFill"></div></div>
+  </div>
   <div id="kills">ZOMBIS <b id="killCount">0</b><span class="record" id="record">RÉCORD 0</span></div>
   <div id="crosshair"></div>
   <div id="hitmarker"></div>
@@ -288,14 +342,14 @@
     <h2>INVENTARIO</h2>
     <div class="invGrid" id="invGrid"></div>
     <div class="invStats" id="invStats"></div>
-    <p class="invHint"><kbd>I</kbd> Cerrar · <kbd>1</kbd>-<kbd>4</kbd> Equipar</p>
+    <p class="invHint"><kbd>I</kbd> Cerrar · <kbd>1</kbd>-<kbd>5</kbd> Equipar</p>
   </div>
 </div>
 
 <div id="overlay">
   <div class="panel">
     <h1>MINICRAFT <span>3D</span></h1>
-    <p class="tag">El mismo mundo · shooter de zombis con 4 armas</p>
+    <p class="tag">El mismo mundo · shooter de zombis con 5 armas</p>
     <button id="playBtn">JUGAR</button>
     <div class="keys">
       <div><kbd>W A S D</kbd>Moverse</div>
@@ -303,7 +357,7 @@
       <div><kbd>Clic izq.</kbd>Disparar / lanzar</div>
       <div><kbd>Clic der.</kbd>Apuntar</div>
       <div><kbd>R</kbd>Recargar</div>
-      <div><kbd>1 2 3 4</kbd>Cambiar arma</div>
+      <div><kbd>1 - 5</kbd>Cambiar arma</div>
       <div><kbd>I</kbd>Inventario</div>
       <div><kbd>Espacio</kbd>Saltar</div>
       <div><kbd>Shift</kbd>Correr</div>
@@ -471,10 +525,32 @@
   /* ================================================================== */
 
   const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.domElement.id = 'game';
   document.body.appendChild(renderer.domElement);
+
+  /* ---------------- Calidad gráfica ---------------- */
+  // La resolución se adapta sola si baja de ~40 FPS. Con /quality se puede
+  // fijar en bajo, medio o alto. Menos resolución = menos coste de relleno.
+  const QUALITY = {
+    mode: 'auto',            // auto | bajo | medio | alto
+    base: Math.min(window.devicePixelRatio || 1, 1.5),
+    scale: 1,
+    poolLimit: 28,           // charcos de luz dibujados (los más cercanos)
+    buildBudget: 5           // ms por frame para construir chunks
+  };
+
+  function applyQuality() {
+    let scale;
+    if (QUALITY.mode === 'bajo') scale = 0.62;
+    else if (QUALITY.mode === 'medio') scale = 1;
+    else if (QUALITY.mode === 'alto') scale = 1.35;
+    else scale = QUALITY.scale;
+    renderer.setPixelRatio(clamp(QUALITY.base * scale, 0.5, 2));
+    QUALITY.poolLimit = QUALITY.mode === 'bajo' ? 14 : (QUALITY.mode === 'alto' ? 44 : 28);
+  }
+
+  applyQuality();
 
   const SKY = 0x8ecbf7;
   const scene = new THREE.Scene();
@@ -569,7 +645,7 @@
   }
 
   function treeAt(x, z) {
-    if (hash2(x * 13 + 7, z * 13 + 11) > 0.007) return null;
+    if (hash2(x * 13 + 7, z * 13 + 11) > 0.0025) return null;
     const h = heightAt(x, z);
     if (h < 8 || h > 26) return null;
     const trunk = 4 + ((hash2(x + 101, z + 211) * 3) | 0);
@@ -859,8 +935,9 @@
   function processQueue(maxBuilds) {
     let built = 0;
     const far = (VIEW + 1.5) * (VIEW + 1.5);
+    const deadline = performance.now() + QUALITY.buildBudget;
 
-    while (buildQueue.length > 0 && built < maxBuilds) {
+    while (buildQueue.length > 0 && built < maxBuilds && performance.now() < deadline) {
       const item = buildQueue.shift();
       const dx = item.cx - lastPCX, dz = item.cz - lastPCZ;
       if (dx * dx + dz * dz > far) continue;
@@ -876,7 +953,7 @@
         dirtyChunks.delete(key);
         const c = chunks.get(key);
         if (c && c.mesh) buildChunkMesh(c);
-        if (++n >= 8) break;
+        if (++n >= 8 || performance.now() >= deadline) break;
       }
     }
   }
@@ -972,16 +1049,17 @@
     clouds.material.opacity = a.cloudOp + (b.cloudOp - a.cloudOp) * k;
 
     dayGlow = a.glow + (b.glow - a.glow) * k;
-    torchGlowMat.opacity = 0.92 * dayGlow;
-    torchPoolMat.opacity = 0.5 * dayGlow;
+    torchGlowMat.opacity = 0.55 * dayGlow;
+    torchPoolMat.opacity = 0.25 * dayGlow;
     starMat.opacity = a.stars + (b.stars - a.stars) * k;
   }
 
   /* ---------------- Antorchas repartidas por el mapa ---------------- */
 
-  const TORCH_CELL = 9;       // una antorcha por celda de 9x9 bloques
-  const TORCH_RADIUS = 56;    // sólo se dibujan alrededor del jugador
-  const MAX_TORCHES = 240;
+  const TORCH_CELL = 18;      // una antorcha por celda de 18x18 bloques (menos densidad)
+  const TORCH_RADIUS = 72;    // mayor radio de renderizado alrededor del jugador
+  const MAX_TORCHES = 120;    // antorchas por defecto (se puede subir con /light)
+  const TORCH_CAPACITY = 360; // capacidad máxima real de los InstancedMesh
 
   const torchGlowTex = (function () {
     const size = 128;
@@ -1011,11 +1089,11 @@
   const torchStickMat = new THREE.MeshLambertMaterial({ color: 0x6b4a2a });
   const torchTipMat = new THREE.MeshBasicMaterial({ color: 0xffcf5e });
   const torchGlowMat = new THREE.MeshBasicMaterial({
-    map: torchGlowTex, color: 0xffb15c, transparent: true, opacity: 0.92,
+    map: torchGlowTex, color: 0xffd2a0, transparent: true, opacity: 0.55,
     blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false
   });
   const torchPoolMat = new THREE.MeshBasicMaterial({
-    map: torchGlowTex, color: 0xffa452, transparent: true, opacity: 0.5,
+    map: torchGlowTex, color: 0xffb880, transparent: true, opacity: 0.25,
     blending: THREE.AdditiveBlending, depthWrite: false, fog: false
   });
 
@@ -1037,7 +1115,7 @@
   torchPoolGeo.rotateX(-Math.PI / 2);
 
   function makeTorchMesh(geo, mat) {
-    const m = new THREE.InstancedMesh(geo, mat, MAX_TORCHES);
+    const m = new THREE.InstancedMesh(geo, mat, TORCH_CAPACITY);
     m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     m.frustumCulled = false;
     m.count = 0;
@@ -1068,17 +1146,19 @@
 
   function updateTorchInstances() {
     torchCache.length = 0;
-    const cx = Math.floor(player.pos.x / TORCH_CELL);
-    const cz = Math.floor(player.pos.z / TORCH_CELL);
-    const rad = Math.ceil(TORCH_RADIUS / TORCH_CELL);
-    const r2 = TORCH_RADIUS * TORCH_RADIUS;
+    const cell = Math.max(6, Math.round(18 / Math.max(0.1, game.torchMultiplier)));
+    const maxT = Math.min(480, Math.round(MAX_TORCHES * game.torchMultiplier));
+    const rad = Math.ceil(72 / cell);
+    const r2 = 72 * 72;
+    const cx = Math.floor(player.pos.x / cell);
+    const cz = Math.floor(player.pos.z / cell);
 
     for (let gz = cz - rad; gz <= cz + rad; gz++) {
       for (let gx = cx - rad; gx <= cx + rad; gx++) {
         const jx = (hash2(gx * 7 + 3, gz * 13 + 5) - 0.5) * 5.2;
         const jz = (hash2(gx * 17 + 11, gz * 5 + 7) - 0.5) * 5.2;
-        const wx = gx * TORCH_CELL + jx;
-        const wz = gz * TORCH_CELL + jz;
+        const wx = gx * cell + jx;
+        const wz = gz * cell + jz;
         const dx = wx - player.pos.x, dz = wz - player.pos.z;
         if (dx * dx + dz * dz > r2) continue;
 
@@ -1092,7 +1172,19 @@
       }
     }
 
-    const n = Math.min(torchCache.length, MAX_TORCHES);
+    const n = Math.min(torchCache.length, maxT, TORCH_CAPACITY);
+
+    // Los resplandores y charcos más cercanos primero: así el jugador ve
+    // siempre las antorchas de su alrededor y no gastamos relleno en las
+    // que quedan lejos (los charcos son planos aditivos muy grandes).
+    for (let i = 0; i < n; i++) {
+      const t = torchCache[i];
+      const dx = t.x - player.pos.x, dz = t.z - player.pos.z;
+      t.d2 = dx * dx + dz * dz;
+    }
+    torchCache.length = n;
+    torchCache.sort(function (a, b) { return a.d2 - b.d2; });
+
     for (let i = 0; i < n; i++) {
       const t = torchCache[i];
       torchQ.identity();
@@ -1103,11 +1195,17 @@
       torchM4.compose(torchPos.set(t.x, t.y + 0.47 * t.s, t.z), torchQ, torchScl.set(t.s, t.s, t.s));
       torchTips.setMatrixAt(i, torchM4);
 
-      const gs = 1.5 * t.s;
+      const gs = 3.2 * t.s;
       torchM4.compose(torchPos.set(t.x, t.y + 0.50 * t.s, t.z), torchQ, torchScl.set(gs, gs, gs));
       torchGlows.setMatrixAt(i, torchM4);
+    }
 
-      const ps = 8.5 * t.s;
+    // Charcos de luz: sólo los más cercanos, con tamaño contenido para no
+    // acumular capas aditivas enormes cuando hay muchas antorchas juntas.
+    const pn = Math.min(n, QUALITY.poolLimit);
+    for (let i = 0; i < pn; i++) {
+      const t = torchCache[i];
+      const ps = 15.0 * t.s;
       torchM4.compose(torchPos.set(t.x, t.y + 0.04, t.z), torchQ, torchScl.set(ps, 1, ps));
       torchPools.setMatrixAt(i, torchM4);
     }
@@ -1115,7 +1213,7 @@
     torchSticks.count = n;
     torchTips.count = n;
     torchGlows.count = n;
-    torchPools.count = n;
+    torchPools.count = pn;
     torchSticks.instanceMatrix.needsUpdate = true;
     torchTips.instanceMatrix.needsUpdate = true;
     torchGlows.instanceMatrix.needsUpdate = true;
@@ -1123,8 +1221,9 @@
   }
 
   function updateTorches() {
-    const gx = Math.floor(player.pos.x / TORCH_CELL);
-    const gz = Math.floor(player.pos.z / TORCH_CELL);
+    const cell = Math.max(6, Math.round(18 / Math.max(0.1, game.torchMultiplier)));
+    const gx = Math.floor(player.pos.x / cell);
+    const gz = Math.floor(player.pos.z / cell);
     const moved = (player.pos.x - lastTorchX) * (player.pos.x - lastTorchX) +
                   (player.pos.z - lastTorchZ) * (player.pos.z - lastTorchZ);
     if (gx === lastTorchCellX && gz === lastTorchCellZ && moved < 400) return;
@@ -1154,14 +1253,14 @@
       if (d < d1) { b2 = b1; d2 = d1; b1 = t; d1 = d; }
       else if (d < d2) { b2 = t; d2 = d; }
     }
-    const maxD = 16 * 16;
+    const maxD = 28 * 28;
     if (b1 && d1 < maxD) {
       torchLightA.position.set(b1.x, b1.y + 0.5, b1.z);
-      torchLightA.intensity = 1.5 * dayGlow;
+      torchLightA.intensity = 2.2 * dayGlow;
     } else torchLightA.intensity = 0;
     if (b2 && d2 < maxD) {
       torchLightB.position.set(b2.x, b2.y + 0.5, b2.z);
-      torchLightB.intensity = 1.2 * dayGlow;
+      torchLightB.intensity = 1.8 * dayGlow;
     } else torchLightB.intensity = 0;
   }
 
@@ -1200,6 +1299,17 @@
     returnWeapon: 0,
     elapsed: 0,
     spawnTimer: 1.5,
+    spawnPaused: false,
+    redQuotaWave: 0,
+    redWaveQuota: 0,
+    redWaveSpawned: 0,
+    consoleOpen: false,
+    torchMultiplier: 1.0,
+    zombieSpeedMultiplier: 1.0,
+    godMode: false,
+    infiniteAmmo: false,
+    playerSpeedMultiplier: 1.0,
+    jumpForceMultiplier: 1.0,
     growlTimer: 3,
     hurtCd: 0,
     fireCooldown: 0,
@@ -1330,14 +1440,14 @@
     if (len > 0) { mx /= len; mz /= len; }
 
     const sprint = keys['ShiftLeft'] || keys['ShiftRight'];
-    const speed = sprint ? 6.4 : 4.3;
+    const speed = (sprint ? 6.4 : 4.3) * game.playerSpeedMultiplier;
     const accel = player.onGround ? 16 : 6;
     const blend = Math.min(1, accel * dt);
     player.vel.x += (mx * speed - player.vel.x) * blend;
     player.vel.z += (mz * speed - player.vel.z) * blend;
 
     if (keys['Space'] && player.onGround) {
-      player.vel.y = 8.6;
+      player.vel.y = 8.6 * game.jumpForceMultiplier;
       player.onGround = false;
       playSound('jump');
     }
@@ -1479,6 +1589,34 @@
   addPart(mgGroup, 0.088, 0.10, 0.10, handMat, -0.004, -0.075, -0.30, 0.05); // mano izquierda
   addPart(mgGroup, 0.088, 0.09, 0.15, sleeveMat, 0.02, -0.17, 0.165, 0.5);  // manga
 
+  // ---------------- Escopeta ----------------
+  const woodMat = new THREE.MeshLambertMaterial({ color: 0x6d4a2c });
+  const shotgunGroup = makeWeaponGroup();
+  addPart(shotgunGroup, 0.055, 0.055, 0.62, gunDark, -0.042, 0.035, -0.30); // cañón izquierdo
+  addPart(shotgunGroup, 0.055, 0.055, 0.62, gunDark, 0.042, 0.035, -0.30);  // cañón derecho
+  addPart(shotgunGroup, 0.16, 0.11, 0.22, gunMid, 0, 0.02, -0.01);           // recámara
+  addPart(shotgunGroup, 0.14, 0.075, 0.22, woodMat, 0, -0.02, -0.27);        // guardamanos
+  addPart(shotgunGroup, 0.10, 0.09, 0.28, woodMat, 0, 0.0, 0.23, 0.06);     // culata
+  addPart(shotgunGroup, 0.09, 0.18, 0.09, woodMat, 0, -0.13, 0.10, 0.22);   // empuñadura
+  addPart(shotgunGroup, 0.016, 0.02, 0.016, gunMid, -0.042, 0.074, -0.57);  // mira izq.
+  addPart(shotgunGroup, 0.016, 0.02, 0.016, gunMid, 0.042, 0.074, -0.57);   // mira der.
+  addPart(shotgunGroup, 0.10, 0.115, 0.10, handMat, 0.004, -0.085, 0.09, 0.28); // mano derecha
+  addPart(shotgunGroup, 0.088, 0.10, 0.10, handMat, -0.004, -0.06, -0.28, 0.05); // mano izquierda
+  addPart(shotgunGroup, 0.088, 0.09, 0.15, sleeveMat, 0.02, -0.17, 0.16, 0.5);  // manga
+
+  // ---------------- Lanzamisiles (RPG) ----------------
+  const rpgGreen = new THREE.MeshLambertMaterial({ color: 0x425233 });
+  const rpgDark = new THREE.MeshLambertMaterial({ color: 0x22261d });
+  const rpgGroup = makeWeaponGroup();
+  addPart(rpgGroup, 0.13, 0.13, 0.75, rpgGreen, 0, 0.02, -0.32);          // tubo principal
+  addPart(rpgGroup, 0.16, 0.16, 0.20, rpgDark, 0, 0.02, -0.62);           // boca del lanzador
+  addPart(rpgGroup, 0.15, 0.15, 0.18, rpgDark, 0, 0.02, 0.02);            // parte trasera
+  addPart(rpgGroup, 0.08, 0.22, 0.09, rpgDark, 0, -0.12, -0.15, 0.25);    // empuñadura con gatillo
+  addPart(rpgGroup, 0.09, 0.12, 0.25, woodMat, 0, 0.01, 0.22, 0.12);      // apoyo de hombro / culata
+  addPart(rpgGroup, 0.10, 0.115, 0.10, handMat, 0.004, -0.09, -0.08, 0.25); // mano derecha
+  addPart(rpgGroup, 0.088, 0.10, 0.10, handMat, -0.004, -0.07, -0.38, 0.1); // mano izquierda
+  addPart(rpgGroup, 0.088, 0.09, 0.15, sleeveMat, 0.02, -0.17, 0.12, 0.5);  // manga
+
   // ---------------- Cuchillo ----------------
   const knifeGroup = makeWeaponGroup();
   addPart(knifeGroup, 0.022, 0.10, 0.32, bladeMat, 0, 0.05, -0.20);        // hoja
@@ -1534,6 +1672,26 @@
       baseRot: new THREE.Vector3(0.05, -0.20, 0.08),
       throwable: true,
       cooldown: 0.65, damage: 0, headDamage: 0, range: 0, reloadTime: 0
+    },
+    {
+      id: 'shotgun', name: 'ESCOPETA', short: 'ESCOPETA',
+      group: shotgunGroup,
+      base: new THREE.Vector3(0.30, -0.25, -0.82),
+      muzzle: new THREE.Vector3(0, 0.035, -0.62),
+      key: 'shotgun',
+      cooldown: 0.85, damage: 10, headDamage: 16, spread: 0.075,
+      pellets: 8, recoil: 1.5, kick: 0.032, range: 42, reloadTime: 2.3
+    },
+    {
+      id: 'rpg', name: 'LANZAMISILES', short: 'RP-G',
+      group: rpgGroup,
+      base: new THREE.Vector3(0.28, -0.25, -0.82),
+      muzzle: new THREE.Vector3(0, 0.035, -0.70),
+      key: 'rpg',
+      rocket: true,
+      secret: true,
+      cooldown: 0.9, damage: 500, headDamage: 500, spread: 0.0,
+      recoil: 3.5, kick: 0.08, range: 150, reloadTime: 1.5
     }
   ];
 
@@ -1705,7 +1863,7 @@
   }
 
   /* ================================================================== */
-  /*  Partículas                                                        */
+  /*  Partículas (instanciadas: 4 draw calls en total)                   */
   /* ================================================================== */
 
   const particleGeo = new THREE.BoxGeometry(0.11, 0.11, 0.11);
@@ -1715,32 +1873,79 @@
     dust: new THREE.MeshBasicMaterial({ color: 0x8f7c60 }),
     spark: new THREE.MeshBasicMaterial({ color: 0xffd35e })
   };
+  const PARTICLE_CAPS = { blood: 100, bloodDark: 70, dust: 90, spark: 90 };
+  const particleMeshes = {};
+  const particleFree = {};
   const particles = [];
+  const particleDummy = new THREE.Object3D();
+
+  (function initParticlePools() {
+    for (const kind in PARTICLE_CAPS) {
+      const cap = PARTICLE_CAPS[kind];
+      const mesh = new THREE.InstancedMesh(particleGeo, particleMats[kind], cap);
+      mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      mesh.frustumCulled = false;
+      mesh.count = cap;
+      particleDummy.position.set(0, -999, 0);
+      particleDummy.rotation.set(0, 0, 0);
+      particleDummy.scale.setScalar(0);
+      particleDummy.updateMatrix();
+      for (let i = 0; i < cap; i++) mesh.setMatrixAt(i, particleDummy.matrix);
+      mesh.instanceMatrix.needsUpdate = true;
+      scene.add(mesh);
+      particleMeshes[kind] = mesh;
+      particleFree[kind] = [];
+      for (let i = cap - 1; i >= 0; i--) particleFree[kind].push(i);
+    }
+  })();
+
+  function hideParticle(p) {
+    const mesh = particleMeshes[p.kind];
+    if (!mesh) return;
+    particleDummy.position.set(0, -999, 0);
+    particleDummy.rotation.set(0, 0, 0);
+    particleDummy.scale.setScalar(0);
+    particleDummy.updateMatrix();
+    mesh.setMatrixAt(p.slot, particleDummy.matrix);
+    mesh.instanceMatrix.needsUpdate = true;
+    particleFree[p.kind].push(p.slot);
+  }
 
   function burst(x, y, z, count, kind, spread, power) {
-    const mat = particleMats[kind] || particleMats.dust;
+    const kindKey = particleMats[kind] ? kind : 'dust';
     for (let i = 0; i < count; i++) {
-      const m = new THREE.Mesh(particleGeo, mat);
-      m.position.set(x, y, z);
-      m.rotation.set(Math.random() * 6.28, Math.random() * 6.28, Math.random() * 6.28);
-      const s = 0.55 + Math.random() * 0.85;
-      m.scale.setScalar(s);
-      scene.add(m);
+      const free = particleFree[kindKey];
+      if (!free.length) break;
+      const slot = free.pop();
+
       const ang = Math.random() * Math.PI * 2;
       const sp = Math.random() * spread;
       const life = 0.45 + Math.random() * 0.55;
-      particles.push({
-        mesh: m,
+      const p = {
+        kind: kindKey,
+        slot: slot,
+        x: x, y: y, z: z,
         vx: Math.cos(ang) * sp * power,
         vy: (0.35 + Math.random() * 0.9) * power,
         vz: Math.sin(ang) * sp * power,
+        rx: Math.random() * 6.28,
+        ry: Math.random() * 6.28,
+        rz: Math.random() * 6.28,
         life: life,
         maxLife: life,
-        size: s
-      });
+        size: 0.55 + Math.random() * 0.85
+      };
+      particles.push(p);
+
+      particleDummy.position.set(p.x, p.y, p.z);
+      particleDummy.rotation.set(p.rx, p.ry, p.rz);
+      particleDummy.scale.setScalar(p.size);
+      particleDummy.updateMatrix();
+      particleMeshes[kindKey].setMatrixAt(slot, particleDummy.matrix);
+      particleMeshes[kindKey].instanceMatrix.needsUpdate = true;
+
       if (particles.length > 160) {
-        const old = particles.shift();
-        scene.remove(old.mesh);
+        hideParticle(particles.shift());
       }
     }
   }
@@ -1750,17 +1955,24 @@
       const p = particles[i];
       p.life -= dt;
       if (p.life <= 0) {
-        scene.remove(p.mesh);
+        hideParticle(p);
         particles.splice(i, 1);
         continue;
       }
       p.vy -= 15 * dt;
-      p.mesh.position.x += p.vx * dt;
-      p.mesh.position.y += p.vy * dt;
-      p.mesh.position.z += p.vz * dt;
-      p.mesh.rotation.x += dt * 5;
-      p.mesh.rotation.z += dt * 4;
-      p.mesh.scale.setScalar(p.size * Math.max(0.08, p.life / p.maxLife));
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.z += p.vz * dt;
+      p.rx += dt * 5;
+      p.rz += dt * 4;
+
+      particleDummy.position.set(p.x, p.y, p.z);
+      particleDummy.rotation.set(p.rx, p.ry, p.rz);
+      particleDummy.scale.setScalar(p.size * Math.max(0.08, p.life / p.maxLife));
+      particleDummy.updateMatrix();
+      const mesh = particleMeshes[p.kind];
+      mesh.setMatrixAt(p.slot, particleDummy.matrix);
+      mesh.instanceMatrix.needsUpdate = true;
     }
   }
 
@@ -1776,16 +1988,16 @@
   zArmGeo.translate(0, -0.33, 0);
   zLegGeo.translate(0, -0.35, 0);
 
-  const zombieFaceTex = (function () {
+  function makeZombieFaceTex(skin, eye, mouth) {
     const c = document.createElement('canvas');
     c.width = c.height = 16;
     const g = c.getContext('2d');
-    g.fillStyle = '#5d9b4a';
+    g.fillStyle = skin;
     g.fillRect(0, 0, 16, 16);
-    g.fillStyle = '#1c2a17';
+    g.fillStyle = eye;
     g.fillRect(3, 5, 3, 3);
     g.fillRect(10, 5, 3, 3);
-    g.fillStyle = '#24331e';
+    g.fillStyle = mouth;
     g.fillRect(5, 11, 6, 2);
     g.fillRect(4, 12, 8, 1);
     const t = new THREE.CanvasTexture(c);
@@ -1793,16 +2005,61 @@
     t.minFilter = THREE.NearestFilter;
     t.generateMipmaps = false;
     return t;
-  })();
+  }
+
+  const zombieFaceTex = makeZombieFaceTex('#5d9b4a', '#1c2a17', '#24331e');
+  const zombieFaceRedTex = makeZombieFaceTex('#f03030', '#ffe14a', '#3a0d0d');
 
   const zombies = [];
   const MAX_ZOMBIES = 32;
 
-  function createZombie(x, y, z) {
-    const skin = new THREE.MeshLambertMaterial({ color: 0x5d9b4a });
-    const shirt = new THREE.MeshLambertMaterial({ color: 0x2f6f78 });
-    const pants = new THREE.MeshLambertMaterial({ color: 0x3a3a5c });
-    const face = new THREE.MeshLambertMaterial({ map: zombieFaceTex });
+  const ZOMBIE_TYPES = {
+    normal: {
+      hp: 50, scale: 1, speedMin: 2.35, speedMax: 3.1, damage: 10,
+      skin: 0x5d9b4a, shirt: 0x2f6f78, pants: 0x3a3a5c
+    },
+    runner: {
+      hp: 30, scale: 0.85, speedMin: 3.8, speedMax: 4.5, damage: 10,
+      skin: 0x79b84f, shirt: 0x7a5a2e, pants: 0x3f4a6b
+    },
+    brute: {
+      hp: 180, scale: 1.32, speedMin: 1.35, speedMax: 1.7, damage: 20,
+      skin: 0x497a39, shirt: 0x6b2f2f, pants: 0x272740
+    },
+    red: {
+      // Élite: rápido, mucho más grande y con un rojo que brilla en la
+      // oscuridad. Un disparo en la cabeza lo mata al instante.
+      hp: 120, scale: 1.4, speedMin: 3.7, speedMax: 4.8, damage: 10,
+      skin: 0xff3030, shirt: 0x8a1010, pants: 0x2b0b0b,
+      emissive: 0x6a0e0e, shirtEmissive: 0x2a0404,
+      faceTex: zombieFaceRedTex,
+      headshotKill: true
+    },
+    titan: {
+      // Titán: monstruo jefazo colosal supremo (escala 8.0, 31000 HP).
+      hp: 31000, scale: 8.0, speedMin: 1.8, speedMax: 2.0, damage: 60,
+      skin: 0x22222a, shirt: 0x4a1010, pants: 0x111118,
+      emissive: 0xff3300, shirtEmissive: 0x331000
+    }
+  };
+
+  function pickZombieType() {
+    const r = Math.random();
+    const runnerChance = game.wave >= 2 ? Math.min(0.25, 0.07 * game.wave) : 0;
+    const bruteChance = game.wave >= 3 ? Math.min(0.16, 0.04 * (game.wave - 2)) : 0;
+    if (r < runnerChance) return 'runner';
+    if (r > 1 - bruteChance) return 'brute';
+    return 'normal';
+  }
+
+  function createZombie(x, y, z, type) {
+    const cfg = ZOMBIE_TYPES[type] || ZOMBIE_TYPES.normal;
+    type = ZOMBIE_TYPES[type] ? type : 'normal';
+
+    const skin = new THREE.MeshLambertMaterial({ color: cfg.skin, emissive: cfg.emissive || 0x000000 });
+    const shirt = new THREE.MeshLambertMaterial({ color: cfg.shirt, emissive: cfg.shirtEmissive || 0x000000 });
+    const pants = new THREE.MeshLambertMaterial({ color: cfg.pants });
+    const face = new THREE.MeshLambertMaterial({ map: cfg.faceTex || zombieFaceTex });
 
     const head = new THREE.Mesh(zHeadGeo, skin);
     head.position.y = 1.66;
@@ -1830,17 +2087,25 @@
     const group = new THREE.Group();
     group.add(head, facePlane, torso, armL, armR, legL, legR);
     group.position.set(x, y, z);
+    group.scale.setScalar(cfg.scale);
     scene.add(group);
 
     return {
       group: group, head: head, torso: torso,
       armL: armL, armR: armR, legL: legL, legR: legR,
       mats: [skin, shirt, pants, face],
-      baseColors: [0x5d9b4a, 0x2f6f78, 0x3a3a5c, 0xffffff],
+      baseColors: [cfg.skin, cfg.shirt, cfg.pants, 0xffffff],
+      type: type,
+      scale: cfg.scale,
+      hw: 0.32 * cfg.scale,
+      height: 1.92 * cfg.scale,
+      headY: 1.41 * cfg.scale,
+      damage: cfg.damage,
+      headshotKill: !!cfg.headshotKill,
       pos: new THREE.Vector3(x, y, z),
       vel: new THREE.Vector3(),
-      hp: 50,
-      speed: 2.35 + Math.random() * 0.75,
+      hp: cfg.hp,
+      speed: cfg.speedMin + Math.random() * (cfg.speedMax - cfg.speedMin),
       attackCd: 0.8 + Math.random(),
       flash: 0,
       walkPhase: Math.random() * 10,
@@ -1853,8 +2118,15 @@
     z.flash = 0.09;
   }
 
+  // Los zombis rojos mueren con un solo impacto en la cabeza, aunque les
+  // quede mucha vida. El resto recibe el daño normal.
+  function applyZombieDamage(z, dmg, headshot) {
+    if (headshot && z.headshotKill) z.hp = 0;
+    else z.hp -= dmg;
+  }
+
   function resolveZombie(z, axis, delta) {
-    const hw = 0.3, h = 1.9;
+    const hw = z.hw, h = z.height;
     const p = z.pos;
     const minX = Math.floor(p.x - hw + EPS), maxX = Math.floor(p.x + hw - EPS);
     const minY = Math.floor(p.y + EPS), maxY = Math.floor(p.y + h - EPS);
@@ -1905,7 +2177,8 @@
       if (o === z) continue;
       const sx = z.pos.x - o.pos.x, sz = z.pos.z - o.pos.z;
       const d2 = sx * sx + sz * sz;
-      if (d2 > 1e-4 && d2 < 1.1) {
+      const minD = 0.35 + z.hw + o.hw;
+      if (d2 > 1e-4 && d2 < minD * minD) {
         const d = Math.sqrt(d2);
         mx += (sx / d) * 0.55;
         mz += (sz / d) * 0.55;
@@ -1914,7 +2187,7 @@
     const ml = Math.hypot(mx, mz);
     if (ml > 1) { mx /= ml; mz /= ml; }
 
-    const speed = z.speed;
+    const speed = z.speed * game.zombieSpeedMultiplier;
     z.vel.x += (mx * speed - z.vel.x) * Math.min(1, 7 * dt);
     z.vel.z += (mz * speed - z.vel.z) * Math.min(1, 7 * dt);
     z.vel.y = Math.max(z.vel.y - 26 * dt, -35);
@@ -1937,9 +2210,10 @@
 
     // Ataque al jugador
     z.attackCd = Math.max(0, z.attackCd - dt);
-    if (!game.dead && dist < 1.1 && Math.abs(player.pos.y - z.pos.y) < 1.6 && z.attackCd === 0) {
+    const reach = 0.78 + z.hw;
+    if (!game.dead && dist < reach && Math.abs(player.pos.y - z.pos.y) < z.height * 0.85 && z.attackCd === 0) {
       z.attackCd = 1.0;
-      hurtPlayer(10);
+      hurtPlayer(z.damage);
     }
 
     // Orientación hacia el jugador
@@ -1957,7 +2231,7 @@
 
     z.group.position.set(
       z.pos.x,
-      z.pos.y + (moving ? Math.abs(Math.sin(z.walkPhase)) * 0.035 : 0),
+      z.pos.y + (moving ? Math.abs(Math.sin(z.walkPhase)) * 0.035 * z.scale : 0),
       z.pos.z
     );
 
@@ -1970,23 +2244,29 @@
     }
   }
 
-  function findZombieSpawn() {
-    for (let attempt = 0; attempt < 40; attempt++) {
+  function findZombieSpawn(zType) {
+    const isRed = zType === 'red';
+    const isTitan = zType === 'titan';
+    const checkHeight = isTitan ? 20 : 3;
+    const distMin = isTitan ? 55 : (isRed ? 35 : 20);
+    const distRange = isTitan ? 40 : (isRed ? 30 : 22);
+
+    for (let attempt = 0; attempt < 60; attempt++) {
       const ang = Math.random() * Math.PI * 2;
-      const dist = 20 + Math.random() * 22;
+      const dist = distMin + Math.random() * distRange;
       const bx = Math.floor(player.pos.x + Math.cos(ang) * dist);
       const bz = Math.floor(player.pos.z + Math.sin(ang) * dist);
       const h = heightAt(bx, bz);
       if (getBlock(bx, h, bz) === AIR) continue;
-      if (getBlock(bx, h + 1, bz) !== AIR || getBlock(bx, h + 2, bz) !== AIR) continue;
 
       let free = true;
-      for (let ox = -1; ox <= 1 && free; ox++) {
-        for (let oz = -1; oz <= 1; oz++) {
-          if (getBlock(bx + ox, h + 1, bz + oz) !== AIR ||
-              getBlock(bx + ox, h + 2, bz + oz) !== AIR) {
-            free = false;
-            break;
+      for (let oy = 1; oy <= checkHeight && free; oy++) {
+        for (let ox = -1; ox <= 1 && free; ox++) {
+          for (let oz = -1; oz <= 1; oz++) {
+            if (getBlock(bx + ox, h + oy, bz + oz) !== AIR) {
+              free = false;
+              break;
+            }
           }
         }
       }
@@ -1996,26 +2276,52 @@
     return null;
   }
 
-  function spawnZombie() {
+  function spawnZombie(type) {
     if (zombies.length >= MAX_ZOMBIES) return null;
-    const p = findZombieSpawn();
+    const resolvedType = type || pickZombieType();
+    const p = findZombieSpawn(resolvedType);
     if (!p) return null;
-    const z = createZombie(p.x, p.y, p.z);
+    const z = createZombie(p.x, p.y, p.z, resolvedType);
     zombies.push(z);
-    burst(p.x, p.y + 0.4, p.z, 7, 'dust', 0.7, 1.1);
+    burst(p.x, p.y + 0.4, p.z, resolvedType === 'titan' ? 14 : 7, 'dust', 0.7, resolvedType === 'titan' ? 1.6 : 1.1);
     playSound('spawn');
     return z;
   }
 
+  // Cuota de zombis rojos por oleada: progresión amistosa en oleadas 1 y 2, y proporción 50/50 (misma cantidad de rojos y verdes) a partir de la oleada 3.
+  function redQuotaForWave(n) {
+    if (n === 1) return 0;
+    if (n === 2) return 2; // Muy pocos en la oleada 2 para empezar suave
+    return Math.min(300, (n - 2) * 100 + 120); // Cuota alta para asegurar la misma cantidad de zombis rojos y verdes en oleada 3 en adelante
+  }
+
+  function spawnWaveZombie() {
+    const redLeft = game.redWaveQuota - game.redWaveSpawned;
+    // Antes de la oleada 3 aparecen de forma espaciada; a partir de la oleada 3, probabilidad 50% (misma cantidad de rojos y verdes).
+    const probRed = game.wave < 3 ? 0.15 : 0.50;
+    const forceTimeThreshold = game.wave < 3 ? 15 : 10;
+    const wantRed = redLeft > 0 && (Math.random() < probRed || game.waveTime < forceTimeThreshold);
+    const z = spawnZombie(wantRed ? 'red' : null);
+    if (z && z.type === 'red') game.redWaveSpawned++;
+    return z;
+  }
+
   function updateSpawner(dt) {
+    // La cuota se reinicia al empezar o saltar de oleada (incluido /wave).
+    if (game.redQuotaWave !== game.wave) {
+      game.redQuotaWave = game.wave;
+      game.redWaveQuota = redQuotaForWave(game.wave);
+      game.redWaveSpawned = 0;
+    }
+    if (game.spawnPaused) return;
     game.elapsed += dt;
     game.spawnTimer -= dt;
     const cap = Math.min(MAX_ZOMBIES, 5 + Math.floor(game.elapsed / 8));
     if (game.spawnTimer <= 0) {
       if (zombies.length < cap) {
-        spawnZombie();
+        spawnWaveZombie();
         // A partir de medio minuto, la horda empieza a llegar en parejas
-        if (game.elapsed > 40 && zombies.length < cap) spawnZombie();
+        if (game.elapsed > 40 && zombies.length < cap) spawnWaveZombie();
       }
       game.spawnTimer = Math.max(0.55, 1.9 - game.elapsed * 0.008) + Math.random() * 0.5;
     }
@@ -2048,15 +2354,19 @@
     zombies.splice(i, 1);
     scene.remove(z.group);
     for (let k = 0; k < z.mats.length; k++) z.mats[k].dispose();
-    burst(z.pos.x, z.pos.y + 1.0, z.pos.z, 14, 'blood', 1.1, 2.2);
-    burst(z.pos.x, z.pos.y + 1.2, z.pos.z, 6, 'bloodDark', 0.9, 1.8);
+    burst(z.pos.x, z.pos.y + 1.0 * z.scale, z.pos.z, 14, 'blood', 1.1, 2.2);
+    burst(z.pos.x, z.pos.y + 1.2 * z.scale, z.pos.z, 6, 'bloodDark', 0.9, 1.8);
     game.kills++;
     updateKillsUI();
     playSound('death');
+
+    if (z.type === 'titan') {
+      win();
+    }
   }
 
   function hurtPlayer(dmg) {
-    if (game.dead || game.hurtCd > 0) return;
+    if (game.godMode || game.dead || game.hurtCd > 0) return;
     game.hurtCd = 0.55;
     player.health = Math.max(0, player.health - dmg);
     updateHealthUI();
@@ -2089,7 +2399,7 @@
     overlay.classList.remove('hidden');
   }
 
-  // La partida termina al llegar a la oleada 5
+  // La partida termina al llegar a la oleada 6 (derrotando al Titán)
   function win() {
     if (game.dead) return;
     game.dead = true;
@@ -2105,10 +2415,10 @@
     }
     updateKillsUI();
     if (document.pointerLockElement) document.exitPointerLock();
-    panelTitle.innerHTML = 'HAS SOBREVIVIDO';
-    panelTag.textContent = 'Oleada 5 alcanzada · ' + game.kills + ' bajas';
+    panelTitle.innerHTML = 'HAS DERROTADO AL TITÁN';
+    panelTag.textContent = 'Oleada ' + TOTAL_WAVES + ' superada · ' + game.kills + ' bajas';
     playBtn.textContent = 'JUGAR DE NUEVO';
-    hintEl.textContent = 'La horda no pudo contigo';
+    hintEl.textContent = '¡Has salvado el mundo del coloso!';
     overlay.classList.remove('hidden');
   }
 
@@ -2153,12 +2463,12 @@
     }
     grenadeBlasts.length = 0;
 
-    for (let i = 0; i < particles.length; i++) scene.remove(particles[i].mesh);
+    for (let i = 0; i < particles.length; i++) hideParticle(particles[i]);
     particles.length = 0;
 
     spawn();
     panelTitle.innerHTML = 'MINICRAFT <span>3D</span>';
-    panelTag.textContent = 'El mismo mundo · shooter de zombis con 4 armas';
+    panelTag.textContent = 'El mismo mundo · shooter de zombis con 5 armas';
     playBtn.textContent = 'CONTINUAR';
     hintEl.textContent = 'Haz clic para capturar el ratón · Esc para pausar';
     updateHealthUI();
@@ -2172,7 +2482,9 @@
 
   const ammo = {
     mg: { mag: 30, size: 30, reloading: false, timer: 0 },
-    pistol: { mag: 12, size: 12, reloading: false, timer: 0 }
+    pistol: { mag: 12, size: 12, reloading: false, timer: 0 },
+    shotgun: { mag: 6, size: 6, reloading: false, timer: 0 },
+    rpg: { mag: 999, size: 999, reloading: false, timer: 0 }
   };
 
   function activeWeapon() {
@@ -2191,6 +2503,15 @@
   }
 
   function updateReload(dt) {
+    if (game.infiniteAmmo) {
+      for (const k in ammo) {
+        ammo[k].mag = ammo[k].size;
+        ammo[k].reloading = false;
+        ammo[k].timer = 0;
+      }
+      updateAmmoUI();
+      return;
+    }
     const w = activeWeapon();
     if (!w || !w.key) return;
     const a = ammo[w.key];
@@ -2253,18 +2574,22 @@
 
     for (let i = 0; i < zombies.length; i++) {
       const z = zombies[i];
+      const isTitan = z.type === 'titan';
+      const mult = isTitan ? 1.5 : 1.0;
       const t = rayAABB(
         origin.x, origin.y, origin.z, dir.x, dir.y, dir.z,
-        z.pos.x - 0.32, z.pos.y, z.pos.z - 0.32,
-        z.pos.x + 0.32, z.pos.y + 1.92, z.pos.z + 0.32
+        z.pos.x - z.hw * mult, z.pos.y, z.pos.z - z.hw * mult,
+        z.pos.x + z.hw * mult, z.pos.y + z.height, z.pos.z + z.hw * mult
       );
       if (t !== null && t >= 0 && t < bestT) {
-        bestT = t;
-        target = z;
-        headshot = origin.y + dir.y * t > z.pos.y + 1.4;
+        if (isTitan || !wall || t <= wall.t) {
+          bestT = t;
+          target = z;
+          headshot = origin.y + dir.y * t > z.pos.y + z.headY;
+        }
       }
     }
-    return { wall: wall, target: target, headshot: headshot, t: bestT };
+    return { wall: wall && (!target || wall.t >= bestT) ? wall : null, target: target, headshot: headshot, t: bestT };
   }
 
   function shootRay() {
@@ -2301,44 +2626,76 @@
 
     const a = ammo[w.key];
     if (!a || a.reloading) return;
-    if (a.mag <= 0) { playSound('empty'); startReload(); return; }
+    if (a.mag <= 0 && !game.infiniteAmmo) { playSound('empty'); startReload(); return; }
 
-    a.mag--;
+    if (!game.infiniteAmmo) a.mag--;
+    else a.mag = a.size;
     game.fireCooldown = w.cooldown;
     game.recoil = Math.min(1.6, game.recoil + w.recoil);
     game.flash = 0.055;
     updateAmmoUI();
-    playSound(w.id === 'mg' ? 'mgShot' : 'shot');
 
-    const ray = shootRay();
-    if (w.spread) {
-      ray.dir.x += (Math.random() - 0.5) * w.spread;
-      ray.dir.y += (Math.random() - 0.5) * w.spread;
-      ray.dir.z += (Math.random() - 0.5) * w.spread;
-      ray.dir.normalize();
+    // Lanzamisiles (RPG) dispara un cohete volador
+    if (w.rocket) {
+      playSound('boom');
+      game.shake = 1.2;
+      fireRpg();
+      if (a.mag === 0) startReload();
+      return;
     }
 
-    const hit = raycastTargets(ray.origin, ray.dir, w.range);
-    const end = ray.origin.clone().addScaledVector(ray.dir, hit.t);
+    playSound(w.id === 'mg' ? 'mgShot' : w.id === 'shotgun' ? 'shotgun' : 'shot');
 
-    // Trazadora: sale aproximadamente de la boca del arma
+    const pellets = w.pellets || 1;
     const right = new THREE.Vector3(Math.cos(player.yaw), 0, -Math.sin(player.yaw));
-    const start = ray.origin.clone().addScaledVector(right, 0.24).addScaledVector(ray.dir, 0.55);
-    start.y -= 0.14;
-    showTracer(start, end);
+    let hitAny = false, headAny = false, wallAny = null;
 
-    if (hit.target) {
-      const dmg = hit.headshot ? w.headDamage : w.damage;
-      hit.target.hp -= dmg;
-      flashZombie(hit.target);
-      burst(end.x, end.y, end.z, hit.headshot ? 10 : 7, 'blood', 0.8, 1.6);
-      showHitmarker(hit.headshot);
-      playSound(hit.headshot ? 'headshot' : 'hit');
-      hit.target.vel.x += ray.dir.x * 1.4;
-      hit.target.vel.z += ray.dir.z * 1.4;
-      if (hit.target.hp <= 0) killZombie(hit.target);
-    } else if (hit.wall) {
-      const wall = hit.wall;
+    for (let p = 0; p < pellets; p++) {
+      const ray = shootRay();
+      if (w.spread) {
+        ray.dir.x += (Math.random() - 0.5) * w.spread;
+        ray.dir.y += (Math.random() - 0.5) * w.spread;
+        ray.dir.z += (Math.random() - 0.5) * w.spread;
+        ray.dir.normalize();
+      }
+
+      const hit = raycastTargets(ray.origin, ray.dir, w.range);
+      const end = ray.origin.clone().addScaledVector(ray.dir, hit.t);
+
+      // Trazadora: sale aproximadamente de la boca del arma
+      if (p === 0) {
+        const start = ray.origin.clone().addScaledVector(right, 0.24).addScaledVector(ray.dir, 0.55);
+        start.y -= 0.14;
+        showTracer(start, end);
+      }
+
+      if (hit.target) {
+        let dmg = hit.headshot ? w.headDamage : w.damage;
+        // La escopeta pierde pegada con la distancia
+        if (pellets > 1) dmg = Math.round(dmg * (1 - Math.min(1, hit.t / w.range) * 0.5));
+        applyZombieDamage(hit.target, dmg, hit.headshot);
+        flashZombie(hit.target);
+        burst(end.x, end.y, end.z, hit.headshot ? 10 : 7, 'blood', 0.8, 1.6);
+        const kb = pellets > 1 ? 0.35 : 1.4;
+        hit.target.vel.x += ray.dir.x * kb;
+        hit.target.vel.z += ray.dir.z * kb;
+        if (!hitAny) {
+          hitAny = true;
+          headAny = hit.headshot;
+          playSound(hit.headshot ? 'headshot' : 'hit');
+        } else if (hit.headshot) {
+          headAny = true;
+        }
+        if (hit.target.hp <= 0) killZombie(hit.target);
+      } else if (hit.wall && !wallAny) {
+        wallAny = hit.wall;
+      }
+    }
+
+    if (hitAny) {
+      showHitmarker(headAny);
+    } else if (wallAny) {
+      const wall = wallAny;
       const hx = wall.x + 0.5 + wall.nx * 0.5;
       const hy = wall.y + 0.5 + wall.ny * 0.5;
       const hz = wall.z + 0.5 + wall.nz * 0.5;
@@ -2367,13 +2724,13 @@
       const z = zombies[i];
       const tHead = rayAABB(
         ray.origin.x, ray.origin.y, ray.origin.z, ray.dir.x, ray.dir.y, ray.dir.z,
-        z.pos.x - 0.32, z.pos.y + 1.42, z.pos.z - 0.32,
-        z.pos.x + 0.32, z.pos.y + 1.92, z.pos.z + 0.32
+        z.pos.x - z.hw, z.pos.y + z.headY, z.pos.z - z.hw,
+        z.pos.x + z.hw, z.pos.y + z.height, z.pos.z + z.hw
       );
       const tBody = rayAABB(
         ray.origin.x, ray.origin.y, ray.origin.z, ray.dir.x, ray.dir.y, ray.dir.z,
-        z.pos.x - 0.32, z.pos.y, z.pos.z - 0.32,
-        z.pos.x + 0.32, z.pos.y + 1.42, z.pos.z + 0.32
+        z.pos.x - z.hw, z.pos.y, z.pos.z - z.hw,
+        z.pos.x + z.hw, z.pos.y + z.headY, z.pos.z + z.hw
       );
       let t = null, head = false;
       if (tHead !== null && (tBody === null || tHead <= tBody)) { t = tHead; head = true; }
@@ -2382,7 +2739,7 @@
       // Si el rayo no toca, apuntar cerca del torso también cuenta
       if (t === null) {
         const vx = z.pos.x - ray.origin.x;
-        const vy = z.pos.y + 1.0 - ray.origin.y;
+        const vy = z.pos.y + z.height * 0.52 - ray.origin.y;
         const vz = z.pos.z - ray.origin.z;
         const d = Math.sqrt(vx * vx + vy * vy + vz * vz);
         if (d > 1e-4 && d <= range) {
@@ -2408,7 +2765,7 @@
 
     if (hit.target) {
       const dmg = hit.headshot ? w.headDamage : w.damage;
-      hit.target.hp -= dmg;
+      applyZombieDamage(hit.target, dmg, hit.headshot);
       flashZombie(hit.target);
       burst(end.x, end.y, end.z, 9, 'blood', 0.8, 1.5);
       showHitmarker(hit.headshot);
@@ -2423,8 +2780,139 @@
   }
 
   /* ================================================================== */
-  /*  Granadas                                                          */
+  /*  Lanzamisiles (RPG) Cohetes y Explosión Masiva Optimizada          */
   /* ================================================================== */
+
+  const rpgProjectiles = [];
+  const rpgProjGeo = new THREE.BoxGeometry(0.12, 0.12, 0.35);
+  const RPG_BLAST_RADIUS = 8.0; // Radio equilibrado y acorde al impacto visual
+
+  function fireRpg() {
+    const ray = shootRay();
+    const pos = ray.origin.clone().addScaledVector(ray.dir, 0.6);
+    pos.y -= 0.12;
+
+    const group = new THREE.Group();
+    const body = new THREE.Mesh(rpgProjGeo, rpgGreen);
+    const tip = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.12), rpgDark);
+    tip.position.z = -0.20;
+    group.add(body, tip);
+    group.position.copy(pos);
+    group.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, -1), ray.dir);
+    scene.add(group);
+
+    rpgProjectiles.push({
+      group: group,
+      pos: pos,
+      vel: ray.dir.clone().multiplyScalar(40),
+      life: 4.0,
+      armTimer: 0.15
+    });
+  }
+
+  function updateRpgProjectiles(dt) {
+    for (let i = rpgProjectiles.length - 1; i >= 0; i--) {
+      const p = rpgProjectiles[i];
+      p.life -= dt;
+      p.armTimer = (p.armTimer || 0) - dt;
+      const step = p.vel.clone().multiplyScalar(dt);
+      p.pos.add(step);
+      p.group.position.copy(p.pos);
+
+      // Comprobar colisión directa con piso o paredes (bloques sólidos)
+      const bx = Math.floor(p.pos.x);
+      const by = Math.floor(p.pos.y);
+      const bz = Math.floor(p.pos.z);
+      const hitBlock = getBlock(bx, by, bz) !== AIR;
+
+      // Comprobar colisión directa con zombis (solo si ya pasó el tiempo de armado)
+      let hitZombie = false;
+      if (p.armTimer <= 0) {
+        for (let j = 0; j < zombies.length; j++) {
+          const z = zombies[j];
+          if (z.type === 'titan') {
+            const mnx = z.pos.x - z.hw * 1.5;
+            const mxx = z.pos.x + z.hw * 1.5;
+            const mny = z.pos.y;
+            const mxy = z.pos.y + z.height;
+            const mnz = z.pos.z - z.hw * 1.5;
+            const mxz = z.pos.z + z.hw * 1.5;
+            if (p.pos.x >= mnx && p.pos.x <= mxx &&
+                p.pos.y >= mny && p.pos.y <= mxy &&
+                p.pos.z >= mnz && p.pos.z <= mxz) {
+              hitZombie = true;
+              break;
+            }
+          } else {
+            const dx = p.pos.x - z.pos.x;
+            const dy = p.pos.y - (z.pos.y + z.height * 0.5);
+            const dz = p.pos.z - z.pos.z;
+            const dist2 = dx * dx + dy * dy + dz * dz;
+            const colRadius = z.hw + 0.35;
+            if (dist2 < colRadius * colRadius) {
+              hitZombie = true;
+              break;
+            }
+          }
+        }
+      }
+
+
+      if (hitBlock || hitZombie || p.life <= 0) {
+        explodeRpg(p.pos.x, p.pos.y, p.pos.z);
+        scene.remove(p.group);
+        rpgProjectiles.splice(i, 1);
+      }
+    }
+  }
+
+  function explodeRpg(x, y, z) {
+    playSound('boom');
+    game.shake = 1.8;
+
+    const sphere = new THREE.Mesh(
+      blastGeo,
+      new THREE.MeshBasicMaterial({
+        color: 0xff6b2b, transparent: true, opacity: 0.9,
+        blending: THREE.AdditiveBlending, depthWrite: false
+      })
+    );
+    sphere.position.set(x, y, z);
+    sphere.scale.setScalar(1.2);
+    scene.add(sphere);
+
+    const light = new THREE.PointLight(0xff5511, 5.0, 25, 2);
+    light.position.set(x, y + 0.4, z);
+    scene.add(light);
+
+    grenadeBlasts.push({ mesh: sphere, light: light, t: 0.6, max: 0.6 });
+
+    burst(x, y + 0.4, z, 20, 'spark', 1.8, 3.2);
+    burst(x, y + 0.3, z, 15, 'dust', 1.5, 2.5);
+
+    const cx = x, cy = y + 0.4, cz = z;
+
+    // Daño masivo optimizado a los zombis en el radio de 20.0
+    for (let i = zombies.length - 1; i >= 0; i--) {
+      const zz = zombies[i];
+      const dx = zz.pos.x - cx;
+      const dy = (zz.pos.y + zz.height * 0.55) - cy;
+      const dz = zz.pos.z - cz;
+      const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      if (d > RPG_BLAST_RADIUS) continue;
+
+      const dmg = Math.round(1200 * (1 - d / RPG_BLAST_RADIUS) + 300);
+      zz.hp -= dmg;
+      flashZombie(zz);
+      if (d > 0.01) {
+        const k = 1 - d / RPG_BLAST_RADIUS;
+        zz.vel.x += (dx / d) * 10 * k;
+        zz.vel.z += (dz / d) * 10 * k;
+        zz.vel.y += 6.0 * k;
+      }
+      if (zz.hp <= 0) killZombie(zz);
+    }
+  }
 
   const grenadeProjectiles = [];
   const grenadeBlasts = [];
@@ -2545,7 +3033,7 @@
     for (let i = zombies.length - 1; i >= 0; i--) {
       const zz = zombies[i];
       const dx = zz.pos.x - cx;
-      const dy = (zz.pos.y + 1.0) - cy;
+      const dy = (zz.pos.y + zz.height * 0.55) - cy;
       const dz = zz.pos.z - cz;
       const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
       if (d > BLAST_RADIUS) continue;
@@ -2647,6 +3135,10 @@
     } else if (kind === 'mgShot') {
       noiseBurst(0.09, 0.2, 4200);
       blip(185, 70, 0.07, 'square', 0.07);
+    } else if (kind === 'shotgun') {
+      noiseBurst(0.3, 0.34, 2600);
+      noiseBurst(0.1, 0.18, 1100);
+      blip(110, 38, 0.24, 'square', 0.13);
     } else if (kind === 'swing') {
       noiseBurst(0.13, 0.06, 2100);
     } else if (kind === 'knifeHit') {
@@ -2718,6 +3210,7 @@
   const wslotEls = [];
   let grenadeSlotCountEl = null;
   WEAPONS.forEach(function (w, i) {
+    if (w.secret) return; // Ocultar armas secretas del HUD
     const d = document.createElement('div');
     d.className = 'wslot';
     d.innerHTML = '<span class="num">' + (i + 1) + '</span>' + w.short;
@@ -2735,7 +3228,7 @@
   /* ================================================================== */
 
   const WAVE_TIME = 180;
-  const TOTAL_WAVES = 5;
+  const TOTAL_WAVES = 6;
   const waveLabelEl = document.getElementById('waveLabel');
   const waveTimeEl = document.getElementById('waveTime');
   const waveFillEl = document.getElementById('waveFill');
@@ -2759,6 +3252,27 @@
     waveFillEl.style.width = (Math.max(0, game.waveTime) / WAVE_TIME * 100) + '%';
   }
 
+  const bossBarWrapEl = document.getElementById('bossBarWrap');
+  const bossFillEl = document.getElementById('bossFill');
+  const bossLabelEl = document.getElementById('bossLabel');
+
+  function updateBossBar() {
+    let titan = null;
+    for (let i = 0; i < zombies.length; i++) {
+      if (zombies[i].type === 'titan') {
+        titan = zombies[i];
+        break;
+      }
+    }
+    if (titan) {
+      bossBarWrapEl.classList.add('show');
+      const pct = Math.max(0, Math.min(100, (titan.hp / 31000) * 100));
+      bossFillEl.style.width = pct + '%';
+    } else {
+      bossBarWrapEl.classList.remove('show');
+    }
+  }
+
   function showWaveMsg(title, sub) {
     waveMsgEl.innerHTML = title + (sub ? '<small>' + sub + '</small>' : '');
     waveMsgEl.classList.add('show');
@@ -2771,6 +3285,10 @@
     game.waveTime = WAVE_TIME;
     waveMsgEl.classList.remove('show');
     updateWaveUI();
+    if (n === 6) {
+      showWaveMsg('OLEADA FINAL: EL TITÁN', '¡HA APARECIDO UN ÚNICO TITÁN COLOSAL!');
+      spawnZombie('titan');
+    }
   }
 
   function finishWave() {
@@ -2792,8 +3310,13 @@
     game.waveTime = WAVE_TIME;
     updateWaveUI();
 
-    // La partida termina al llegar a la oleada 5
-    if (game.wave >= TOTAL_WAVES) win();
+    if (game.wave === 6) {
+      showWaveMsg('OLEADA FINAL: EL TITÁN', '¡HA APARECIDO UN ÚNICO TITÁN COLOSAL!');
+      spawnZombie('titan');
+    }
+
+    // La partida termina al completar la oleada 6
+    if (game.wave > TOTAL_WAVES) win();
   }
 
   const heartEls = [];
@@ -2868,7 +3391,201 @@
     recordEl.textContent = 'RÉCORD ' + game.best;
   }
 
-  /* ---------------- Inventario (tecla I) ---------------- */
+  /* ---------------- Consola de Comandos ---------------- */
+
+  const consolePanel = document.getElementById('consolePanel');
+  const consoleLog = document.getElementById('consoleLog');
+  const consoleInput = document.getElementById('consoleInput');
+
+  function logConsole(msg, type = 'msg') {
+    const d = document.createElement('div');
+    d.className = 'c-' + type;
+    d.textContent = msg;
+    consoleLog.appendChild(d);
+    consoleLog.scrollTop = consoleLog.scrollHeight;
+  }
+
+  function setConsoleOpen(open) {
+    if (open === game.consoleOpen) return;
+    game.consoleOpen = open;
+    if (open) {
+      setInventory(false);
+      game.shooting = false;
+      game.ads = false;
+      consolePanel.classList.remove('hidden');
+      consoleInput.value = '';
+      consoleInput.focus();
+    } else {
+      consolePanel.classList.add('hidden');
+      consoleInput.blur();
+    }
+  }
+
+  function executeConsoleCommand(cmdStr) {
+    cmdStr = cmdStr.trim();
+    if (!cmdStr) return;
+    logConsole('] ' + cmdStr, 'cmd');
+    const parts = cmdStr.split(/\s+/);
+    const cmd = parts[0].toLowerCase();
+    const arg = parts[1] ? parts[1].toLowerCase() : '';
+
+    if (cmd === '/stop_spawn' || cmd === '/stop_spanw') {
+      game.spawnPaused = true;
+      // Eliminar todos los zombis actuales
+      for (let i = zombies.length - 1; i >= 0; i--) {
+        const z = zombies[i];
+        scene.remove(z.group);
+        for (let k = 0; k < z.mats.length; k++) z.mats[k].dispose();
+      }
+      zombies.length = 0;
+      logConsole('Spawner desactivado y todos los zombis eliminados.', 'msg');
+    } else if (cmd === '/play_spawn' || cmd === '/play_span') {
+      game.spawnPaused = false;
+      logConsole('Spawner reanudado.', 'msg');
+    } else if (cmd === '/light_default') {
+      game.torchMultiplier = 1.0;
+      lastTorchCellX = 1e9; lastTorchCellZ = 1e9;
+      logConsole('Cantidad de luces restablecida a por defecto (1x).', 'msg');
+    } else if (cmd === '/light') {
+      const val = parseFloat(parts[1]);
+      if (isNaN(val) || val <= 0) {
+        logConsole('Uso inválido. Ejemplo: /light 2 (valor actual: ' + game.torchMultiplier + 'x)', 'err');
+      } else {
+        game.torchMultiplier = val;
+        lastTorchCellX = 1e9; lastTorchCellZ = 1e9;
+        logConsole('Multiplicador de luces establecido a ' + val + 'x.', 'msg');
+      }
+    } else if (cmd === '/zombie_default') {
+      game.zombieSpeedMultiplier = 1.0;
+      logConsole('Velocidad de zombis restablecida a por defecto (1x).', 'msg');
+    } else if (cmd === '/zombie') {
+      const val = parseFloat(parts[1]);
+      if (isNaN(val) || val < 0) {
+        logConsole('Uso inválido. Ejemplo: /zombie 2 (valor actual: ' + game.zombieSpeedMultiplier + 'x)', 'err');
+      } else {
+        game.zombieSpeedMultiplier = val;
+        logConsole('Multiplicador de velocidad de zombis establecido a ' + val + 'x.', 'msg');
+      }
+    } else if (cmd === '/god_on') {
+      game.godMode = true;
+      logConsole('Modo Dios ACTIVADO (invencible).', 'msg');
+    } else if (cmd === '/god_off') {
+      game.godMode = false;
+      logConsole('Modo Dios DESACTIVADO.', 'msg');
+    } else if (cmd === '/ammo_on') {
+      game.infiniteAmmo = true;
+      for (const k in ammo) { ammo[k].mag = ammo[k].size; }
+      updateAmmoUI();
+      logConsole('Munición infinita ACTIVADA.', 'msg');
+    } else if (cmd === '/ammo_off') {
+      game.infiniteAmmo = false;
+      logConsole('Munición infinita DESACTIVADA.', 'msg');
+    } else if (cmd === '/granade') {
+      const val = parseInt(parts[1], 10);
+      if (isNaN(val) || val < 0) {
+        logConsole('Uso inválido. Ejemplo: /granade 5 (granadas actuales: ' + game.grenades + ')', 'err');
+      } else {
+        game.grenades = clamp(val, 0, 9);
+        updateAmmoUI();
+        if (game.inv) updateInventoryUI();
+        logConsole('Granadas establecidas a ' + game.grenades + '.', 'msg');
+      }
+    } else if (cmd === '/speed') {
+      const val = parseFloat(parts[1]);
+      if (isNaN(val) || val < 0) {
+        logConsole('Uso inválido. Ejemplo: /speed 1.5 (valor actual: ' + game.playerSpeedMultiplier + 'x)', 'err');
+      } else {
+        game.playerSpeedMultiplier = val;
+        logConsole('Velocidad del jugador establecida a ' + val + 'x.', 'msg');
+      }
+    } else if (cmd === '/jump') {
+      const val = parseFloat(parts[1]);
+      if (isNaN(val) || val < 0) {
+        logConsole('Uso inválido. Ejemplo: /jump 1.5 (valor actual: ' + game.jumpForceMultiplier + 'x)', 'err');
+      } else {
+        game.jumpForceMultiplier = val;
+        logConsole('Fuerza de salto establecida a ' + val + 'x.', 'msg');
+      }
+    } else if (cmd === '/wave') {
+      const val = parseInt(parts[1], 10);
+      if (isNaN(val) || val < 1 || val > TOTAL_WAVES) {
+        logConsole('Uso inválido. Ejemplo: /wave 3 (oleadas de 1 a ' + TOTAL_WAVES + ')', 'err');
+      } else {
+        startWave(val);
+        logConsole('Salto a la OLEADA ' + val + '.', 'msg');
+      }
+    } else if (cmd === '/quality' || cmd === '/calidad') {
+      const mode = arg;
+      if (mode === 'auto' || mode === 'bajo' || mode === 'medio' || mode === 'alto') {
+        QUALITY.mode = mode;
+        if (mode === 'auto') QUALITY.scale = 1;
+        applyQuality();
+        updateTorchInstances();
+        logConsole('Calidad gráfica: ' + mode.toUpperCase() +
+          (mode === 'auto' ? ' (adaptativa)' : '') + '.', 'msg');
+      } else {
+        logConsole('Uso: /quality auto|bajo|medio|alto (actual: ' + QUALITY.mode + ')', 'err');
+      }
+    } else if (cmd === '/spawn' || cmd === '/zombi') {
+      const type = arg === 'rojo' ? 'red' : (arg || 'normal');
+      if (!ZOMBIE_TYPES[type]) {
+        logConsole('Uso: /spawn normal|runner|brute|red [cantidad 1-16]', 'err');
+      } else {
+        const count = clamp(parseInt(parts[2], 10) || 1, 1, 16);
+        let n = 0;
+        for (let i = 0; i < count; i++) {
+          if (!spawnZombie(type)) break;
+          n++;
+        }
+        logConsole('Invocados ' + n + ' zombis tipo ' + type + '.', 'msg');
+      }
+    } else if (cmd === '/wp_100') {
+      // Comando secreto interno: equipa el Lanzamisiles con munición infinita
+      const rpgIdx = WEAPONS.findIndex(function(w) { return w.id === 'rpg'; });
+      if (rpgIdx >= 0) {
+        selectWeapon(rpgIdx);
+        ammo.rpg.mag = ammo.rpg.size;
+        game.infiniteAmmo = true;
+        logConsole('Lanzamisiles equipado con munición infinita (Uso Interno).', 'msg');
+      } else {
+        logConsole('Error: Lanzamisiles no encontrado.', 'err');
+      }
+    } else if (cmd === '/clear') {
+      consoleLog.innerHTML = '';
+    } else if (cmd === '/help') {
+      logConsole('Comandos disponibles:', 'msg');
+      logConsole('  /stop_spawn (o /stop_spanw) - Detiene la aparición y elimina todos los zombis', 'msg');
+      logConsole('  /play_spawn (o /play_span)  - Reactiva la aparición de zombis', 'msg');
+      logConsole('  /light <multiplicador>      - Multiplica la cantidad de luces (ej: /light 2)', 'msg');
+      logConsole('  /light_default              - Restablece la cantidad de luces a 1x', 'msg');
+      logConsole('  /zombie <multiplicador>     - Multiplica la velocidad de los zombis (ej: /zombie 1.5)', 'msg');
+      logConsole('  /zombie_default             - Restablece la velocidad de zombis a 1x', 'msg');
+      logConsole('  /god_on /god_off            - Activa o desactiva la invencibilidad', 'msg');
+      logConsole('  /ammo_on /ammo_off          - Activa o desactiva la munición infinita', 'msg');
+      logConsole('  /granade <cantidad>         - Establece la cantidad de granadas (0-9)', 'msg');
+      logConsole('  /speed <multiplicador>      - Modifica la velocidad del jugador', 'msg');
+      logConsole('  /jump <multiplicador>       - Modifica la fuerza de salto del jugador', 'msg');
+      logConsole('  /wave <numero>              - Salta a una oleada específica (1-5)', 'msg');
+      logConsole('  /quality auto|bajo|medio|alto - Cambia la calidad gráfica', 'msg');
+      logConsole('  /spawn normal|runner|brute|red/rojo [n] - Invoca zombis de un tipo (1-16)', 'msg');
+      logConsole('  /clear                      - Limpia la consola', 'msg');
+      logConsole('  /help                       - Muestra esta ayuda', 'msg');
+    } else {
+      logConsole('Comando desconocido: ' + cmd + '. Escribe /help para ver los comandos.', 'err');
+    }
+  }
+
+  consoleInput.addEventListener('keydown', function (e) {
+    if (e.code === 'Enter') {
+      executeConsoleCommand(consoleInput.value);
+      consoleInput.value = '';
+    } else if (e.code === 'Backquote' || e.code === 'Escape') {
+      e.preventDefault();
+      setConsoleOpen(false);
+      requestLock();
+    }
+    e.stopPropagation();
+  });
 
   const invEl = document.getElementById('inventory');
   const invGridEl = document.getElementById('invGrid');
@@ -3002,6 +3719,11 @@
 
   window.addEventListener('keydown', function (e) {
     keys[e.code] = true;
+    if (e.code === 'Backquote') {
+      if (!game.dead && (locked() || game.consoleOpen)) setConsoleOpen(!game.consoleOpen);
+      return;
+    }
+    if (game.consoleOpen) return;
     if (e.code === 'KeyI') {
       if (!game.dead && (locked() || game.inv)) setInventory(!game.inv);
       return;
@@ -3012,6 +3734,7 @@
       if (e.code === 'Digit2') selectWeapon(1);
       if (e.code === 'Digit3') selectWeapon(2);
       if (e.code === 'Digit4') selectWeapon(3);
+      if (e.code === 'Digit5') selectWeapon(4);
       return;
     }
     if (e.code === 'KeyR') startReload();
@@ -3019,6 +3742,7 @@
     if (e.code === 'Digit2') selectWeapon(1);
     if (e.code === 'Digit3') selectWeapon(2);
     if (e.code === 'Digit4') selectWeapon(3);
+    if (e.code === 'Digit5') selectWeapon(4);
     if (e.code === 'Space' || e.code.indexOf('Arrow') === 0) e.preventDefault();
   });
 
@@ -3067,7 +3791,7 @@
   }
 
   let lastTime = performance.now();
-  let fpsFrames = 0, fpsTime = 0;
+  let fpsFrames = 0, fpsTime = 0, lastFps = 60, qualityTimer = 0;
 
   function animate(now) {
     requestAnimationFrame(animate);
@@ -3081,6 +3805,7 @@
       updateZombies(dt);
       updateSpawner(dt);
       updateGrenades(dt);
+      updateRpgProjectiles(dt);
       updateBlasts(dt);
 
       // Volver al arma anterior tras lanzar la granada
@@ -3095,7 +3820,23 @@
       // Contador de la oleada (3 minutos)
       game.waveTime -= dt;
       if (game.waveTime <= 0) {
-        finishWave();
+        if (game.wave === 6) {
+          let titanAlive = false;
+          for (let i = 0; i < zombies.length; i++) {
+            if (zombies[i].type === 'titan') {
+              titanAlive = true;
+              break;
+            }
+          }
+          if (titanAlive) {
+            showWaveMsg('¡TIEMPO AGOTADO!', '¡EL TITÁN TE HA DEVORADO!');
+            die();
+          } else {
+            finishWave();
+          }
+        } else {
+          finishWave();
+        }
       } else if (Math.ceil(game.waveTime) !== game.waveSecs) {
         updateWaveUI();
       }
@@ -3114,11 +3855,12 @@
     updateParticles(dt);
     updateTorches();
     updateDayNight();
+    updateBossBar();
     updateTorchLights(dt);
     stars.position.set(player.pos.x, 0, player.pos.z);
     game.shake = Math.max(0, game.shake - dt * 2.4);
     updateStreaming(player.pos.x, player.pos.z);
-    processQueue(3);
+    processQueue(2);
 
     clouds.position.x = player.pos.x;
     clouds.position.z = player.pos.z;
@@ -3130,13 +3872,39 @@
     fpsTime += raw;
     if (fpsTime > 0.5) {
       const fps = Math.round(fpsFrames / fpsTime);
+      lastFps = fps;
       statsEl.textContent =
         'X ' + Math.floor(player.pos.x) +
         '  Y ' + Math.floor(player.pos.y) +
         '  Z ' + Math.floor(player.pos.z) +
-        '   ·   ' + fps + ' FPS';
+        '   ·   ' + fps + ' FPS' +
+        '   ·   ' + (QUALITY.mode === 'auto'
+          ? 'AUTO ' + Math.round(QUALITY.scale * 100) + '%'
+          : QUALITY.mode.toUpperCase());
       fpsFrames = 0;
       fpsTime = 0;
+    }
+
+    // Calidad adaptativa: baja resolución si el equipo no llega a 40 FPS
+    // y la recupera cuando sobra margen. Sólo en modo automático.
+    if (QUALITY.mode === 'auto') {
+      qualityTimer += raw;
+      if (qualityTimer > 2) {
+        qualityTimer = 0;
+        if (lastFps < 20 && QUALITY.scale > 0.5) {
+          QUALITY.scale = Math.max(0.5, QUALITY.scale - 0.25);
+          applyQuality();
+        } else if (lastFps < 35 && QUALITY.scale > 0.5) {
+          QUALITY.scale = Math.max(0.5, QUALITY.scale - 0.15);
+          applyQuality();
+        } else if (lastFps < 40 && QUALITY.scale > 0.5) {
+          QUALITY.scale = Math.max(0.5, QUALITY.scale - 0.1);
+          applyQuality();
+        } else if (lastFps > 57 && QUALITY.scale < 1) {
+          QUALITY.scale = Math.min(1, QUALITY.scale + 0.05);
+          applyQuality();
+        }
+      }
     }
   }
 
@@ -3192,7 +3960,10 @@
     grenadeProjectiles: grenadeProjectiles, grenadeBlasts: grenadeBlasts,
     updateGrenades: updateGrenades, updateBlasts: updateBlasts,
     setInventory: setInventory, updateInventoryUI: updateInventoryUI,
+    setConsoleOpen: setConsoleOpen, executeConsoleCommand: executeConsoleCommand, logConsole: logConsole,
     updateWeapon: updateWeapon,
+    QUALITY: QUALITY, applyQuality: applyQuality, ZOMBIE_TYPES: ZOMBIE_TYPES, pickZombieType: pickZombieType,
+    particles: particles, particleMeshes: particleMeshes,
     chunks: chunks, buildChunkMesh: buildChunkMesh,
     updateStreaming: updateStreaming, processQueue: processQueue
   };
